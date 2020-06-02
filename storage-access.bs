@@ -143,8 +143,6 @@ A <dfn>storage access flag set</dfn> is a set of zero or more of the following f
 :: When set, this flag indicates |embedded site| has access to its [=first party data=] when it's loaded in a [=third party context=] on |top-level site|.
 : The <dfn for="storage access flag set" id=was-expressly-denied-storage-access-flag>was expressly denied storage access flag</dfn>
 :: When set, this flag indicates that the user expressly denied |embedded site| access to its [=first party data=] when it's loaded in a [=third party context=] on |top-level site|.
-: The <dfn for="storage access flag set" id=storage-access-blocked-flag>storage access blocked flag</dfn>
-:: When set, this flag indicates that the user agent must prompt the user to determine whether |embedded site| has access to its [=first party data=] when it's loaded in a [=third party context=] on |top-level site|.
 
 To <dfn type="abstract-op">obtain a storage access flag set</dfn> for a [=partitioned storage key=] |key| from a [=/storage access map=] |map|, run the following steps:
 
@@ -229,10 +227,8 @@ To <dfn type="abstract-op">determine if a site has storage access</dfn> with [=p
 1. Let |map| be the result of [=obtain the storage access map|obtaining the storage access map=] for |doc|.
 1. Let |flag set| be the result of [=obtain a storage access flag set|obtaining the storage access flag set=] with |key| from |map|.
 1. If |flag set|'s [=has storage access flag=] is set, return true.
-1. If |flag set|'s [=storage access blocked flag=] is set, return false.
 1. Let |has storage access| (a [=boolean=]) be the result of running an [=implementation-defined=] set of steps to determine if |key|'s [=partitioned storage key/embedded site=] has access to its [=first party data=] on |key|'s [=partitioned storage key/top-level site=].
 1. If |has storage access| is true, set |flag set|'s [=has storage access flag=].
-1. If |has storage access| is true, unset |flag set|'s [=storage access blocked flag=].
 1. [=Save the storage access flag set=] for |key| in |map|.
 1. Return |has storage access|.
 
@@ -240,18 +236,16 @@ To <dfn type="abstract-op">determine the storage access policy</dfn> for [=parti
 
 1. Let |map| be the result of [=obtain the storage access map|obtaining the storage access map=] for |doc|.
 1. Let |flag set| be the result of [=obtain a storage access flag set|obtaining the storage access flag set=] with |key| from |map|.
-1. If |flag set|'s [=storage access blocked flag=] is not set:
-    1. Let |implicitly granted| and |implicitly denied| (each a [=boolean=]) be the result of running an [=implementation-defined=] set of steps to determine if |key|'s [=partitioned storage key/embedded site=]'s request for storage access on |key|'s [=partitioned storage key/top-level site=] should be granted or denied without prompting the user.
+1. Let |implicitly granted| and |implicitly denied| (each a [=boolean=]) be the result of running an [=implementation-defined=] set of steps to determine if |key|'s [=partitioned storage key/embedded site=]'s request for storage access on |key|'s [=partitioned storage key/top-level site=] should be granted or denied without prompting the user.
 
     Note: These [=implementation-defined=] set of steps might result in |flag set|'s [=has storage access flag=] and [=was expressly denied storage access flag=] changing, since the User Agent could have relevant out-of-band information (e.g. a user preference that changed) that this specification is unaware of.
-    1. If |implicitly granted| is true, [=/resolve=] |p| and return.
-    1. If |implicitly denied| is true, [=/reject=] |p| and return.
+1. If |implicitly granted| is true, [=/resolve=] |p| and return.
+1. If |implicitly denied| is true, [=/reject=] |p| and return.
 1. Ask the user if they would like to grant |key|'s [=partitioned storage key/embedded site=] access to its [=first party data=] when it's loaded in a [=third party context=] on |key|'s [=partitioned storage key/top-level site=], and wait for an answer. Let |expressly granted| and |expressly denied| (both [=booleans=]) be the result.
 
     Note: While |expressly granted| and |expressly denied| cannot both be true, they could both be false in User Agents which allow users to dismiss the prompt without choosing to allow or deny the request. (Such a dismissal is interpreted in this algorithm as a denial.)
 1. If |expressly granted| is true, run these steps:
     1. Unset |flag set|'s [=was expressly denied storage access flag=].
-    1. Unset |flag set|'s [=storage access blocked flag=].
     1. [=Save the storage access flag set=] for |key| in |map|.
     1. [=/Resolve=] |p| and return. <!-- WebKit's DocumentStorageAccess.cpp#L191 -->
 1. Unset |flag set|'s [=has storage access flag=].
@@ -337,19 +331,16 @@ The <dfn export>Set Storage Access</dfn> [=extension command=] modifies the stor
 The [=remote end steps=] are:
 
  1. If |parameters| is not a JSON [=Object=], return a [=WebDriver error=] with [=WebDriver error code=] [=invalid argument=].
-1. Let |storageAccess| be the result of [=getting a property=] from |parameters| named `storageAccess`.
-1. If |storageAccess| is not `"allowed"` or `"blocked"` return a [=WebDriver error=] with [=WebDriver error code=] [=invalid argument=].
+1. Let |blocked| be the result of [=getting a property=] from |parameters| named `blocked`.
+1. If |blocked| is not a [=boolean=] return a [=WebDriver error=] with [=WebDriver error code=] [=invalid argument=].
 1. Let |doc| be the [=current browsing context=]'s [=active document=].
 1. Let |key| be the result of [=generate a partitioned storage key|generating a partitioned storage key=] from |doc|.
 1. If |key| is failure, return a [=WebDriver error=] with [=WebDriver error code=] [=unknown error=].
-1. Let |map| be the result of [=obtain the storage access map|obtaining the storage access map=] for |doc|.
-1. Let |flag set| be the result of [=obtain a storage access flag set|obtaining the storage access flag set=] with |key| from |map|.
 1. Run the substeps of the first matching condition:
-    - |storageAccess| is `"allowed"`
-        1. Set |flag set|'s [=has storage access flag=].
-    - |storageAccess| is `"blocked"`
-        1. Set |flag set|'s [=storage access blocked flag=].
-1. [=Save the storage access flag set=] for |key| in |map|.
+    - |blocked| is `true`
+        1. Run an [=implementation-defined=] set of steps to ensure that |key|'s [=embedded site=] does not have access to its [=first party data=] on |key|'s [=top-level site=].
+    - |blocked| is `false`
+        1. Run an [=implementation-defined=] set of steps to ensure that |key|'s [=embedded site=] has access to its [=first party data=] on |key|'s [=top-level site=].
 1. Return [=success=] with data `null`.
 
 <h2 id="acknowledgements" class="no-num">Acknowledgements</h2>
